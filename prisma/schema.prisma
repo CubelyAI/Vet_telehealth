@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Customer {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  email      String
+  phone      String
+  created_at DateTime @default(now())
+
+  @@map("customers")
+}
+
+model Vet {
+  id           String             @id @db.Uuid
+  name         String
+  email        String             @unique
+  ahpra_number String
+  created_at   DateTime           @default(now())
+  slots        AvailabilitySlot[]
+  appointments Appointment[]
+
+  @@map("vets")
+}
+
+model AvailabilitySlot {
+  id               String        @id @default(uuid()) @db.Uuid
+  vet_id           String        @db.Uuid
+  datetime         DateTime
+  duration_minutes Int
+  is_booked        Boolean       @default(false)
+  vet              Vet           @relation(fields: [vet_id], references: [id], onDelete: Cascade)
+  appointment      Appointment?
+
+  @@map("availability_slots")
+}
+
+model Appointment {
+  id                String            @id @default(uuid()) @db.Uuid
+  customer_name     String
+  customer_email    String
+  customer_phone    String
+  datetime          DateTime
+  status            AppointmentStatus @default(PENDING)
+  vet_id            String            @db.Uuid
+  stripe_session_id String?
+  booking_token     String            @unique @default(uuid()) @db.Uuid
+  slot_id           String?           @unique @db.Uuid
+  created_at        DateTime          @default(now())
+  vet               Vet               @relation(fields: [vet_id], references: [id])
+  slot              AvailabilitySlot? @relation(fields: [slot_id], references: [id])
+  pet               Pet?
+  questionnaire     QuestionnaireResponse?
+  consultation      Consultation?
+
+  @@map("appointments")
+}
+
+model Pet {
+  id             String      @id @default(uuid()) @db.Uuid
+  name           String
+  species        String
+  breed          String
+  age            Int
+  weight         Float
+  appointment_id String      @unique @db.Uuid
+  appointment    Appointment @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+
+  @@map("pets")
+}
+
+model QuestionnaireResponse {
+  id             String      @id @default(uuid()) @db.Uuid
+  appointment_id String      @unique @db.Uuid
+  answers        Json
+  appointment    Appointment @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+
+  @@map("questionnaire_responses")
+}
+
+model Consultation {
+  id             String      @id @default(uuid()) @db.Uuid
+  appointment_id String      @unique @db.Uuid
+  vet_notes      String?
+  recording_url  String?
+  transcript     String?
+  appointment    Appointment @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+
+  @@map("consultations")
+}
