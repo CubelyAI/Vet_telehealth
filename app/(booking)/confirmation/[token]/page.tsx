@@ -11,14 +11,14 @@ interface Props {
 }
 
 async function getAppointmentByToken(token: string) {
-  // Set RLS session variable via raw SQL before querying
-  await prisma.$executeRawUnsafe(
-    `SET LOCAL app.booking_token = '${token.replace(/'/g, "''")}'`
-  )
-
-  return prisma.appointment.findUnique({
-    where: { booking_token: token },
-    include: { pet: true, vet: true },
+  return prisma.$transaction(async (tx) => {
+    // set_config with is_local=true scopes the value to this transaction,
+    // satisfying the RLS policy that reads app.booking_token
+    await tx.$executeRaw`SELECT set_config('app.booking_token', ${token}, true)`
+    return tx.appointment.findUnique({
+      where: { booking_token: token },
+      include: { pet: true, vet: true },
+    })
   })
 }
 
